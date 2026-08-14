@@ -1,116 +1,121 @@
-# iot-heart-rate-monitor
+# ICU Smart Patient Monitoring System (Simulation)
 
-from flask import Flask, render_template, Response, jsonify
-import cv2
-import random
+A software-based ICU patient monitoring system built with Python and Flask that simulates real-time tracking of patient vital parameters — heart rate, SpO₂, and movement — with automatic alerts when abnormal conditions are detected.
 
-app = Flask(__name__)
+## Overview
 
-cap = cv2.VideoCapture("patient.mp4")
+This project simulates real-time ICU patient monitoring using video analysis and simulated sensor data instead of physical hardware. The system continuously analyzes a patient video feed alongside generated vital-sign data. If it detects an abnormal condition — high heart rate, low SpO₂, or no movement — it triggers an alert that's displayed instantly on a web dashboard for doctors or attenders.
 
-prev_frame = None
+It's a low-cost, scalable approach to ICU monitoring that avoids the need for physical sensors during prototyping and testing.
 
-# ✅ Global shared data
-current_data = {
-    "heart_rate": 80,
-    "spo2": 98,
-    "status": "Normal",
-    "alert": False
-}
+## Objectives
 
-# -----------------------------
-# Motion Detection
-# -----------------------------
-def detect_motion(frame):
-    global prev_frame
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+- Simulate ICU patient monitoring using software only
+- Analyze patient video and vital parameters together
+- Automatically detect abnormal conditions
+- Alert doctors/attenders instantly through a web interface
 
-    if prev_frame is None:
-        prev_frame = gray
-        return "Normal"
+## System Architecture
 
-    diff = cv2.absdiff(prev_frame, gray)
-    prev_frame = gray
+```
+Patient Video (MP4) + Simulated Vital Data
+              ↓
+     Analysis Engine (Python + OpenCV)
+              ↓
+          Flask Server
+              ↓
+        Web Dashboard
+              ↓
+     Doctor / Attender
+```
 
-    if diff.mean() < 5:
-        return "No Movement"
-    return "Normal"
+## How It Works
 
-# -----------------------------
-# Analysis
-# -----------------------------
-def analyze(frame):
-    global current_data
+### 1. Patient Data Simulation
+- Heart Rate: 60–120 bpm
+- SpO₂: 90–100%
+- Generated using Python's `random` module
 
-    # Smooth variation
-    current_data["heart_rate"] += random.randint(-2, 2)
-    current_data["spo2"] += random.randint(-1, 1)
+### 2. Video Analysis
+- Uses a pre-recorded patient video in place of a live camera feed
+- Motion detection applied via OpenCV
+- No movement detected → flagged as a critical condition
 
-    current_data["heart_rate"] = max(60, min(120, current_data["heart_rate"]))
-    current_data["spo2"] = max(90, min(100, current_data["spo2"]))
+### 3. Condition Detection
 
-    motion = detect_motion(frame)
+| Parameter | Condition | Status |
+|---|---|---|
+| HR > 100 | High heart rate | Alert |
+| SpO₂ < 92 | Low oxygen | Critical |
+| No movement | Motion failure | Emergency |
 
-    # Condition check
-    if current_data["heart_rate"] > 110:
-        status = "Critical - High HR"
-    elif current_data["spo2"] < 92:
-        status = "Critical - Low SpO2"
-    elif motion == "No Movement":
-        status = "Critical - No Movement"
-    else:
-        status = "Normal"
+### 4. Backend (Flask)
+Handles data processing, video streaming, and API communication between the analysis engine and the dashboard.
 
-    current_data["status"] = status
-    current_data["alert"] = (status != "Normal")
+### 5. Web Dashboard
+Displays the patient video feed, live vital parameters, and current alert status in real time.
 
-# -----------------------------
-# Video Stream
-# -----------------------------
-def gen_frames():
-    while True:
-        success, frame = cap.read()
+## Results
 
-        if not success:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            continue
+**Emergency Alert — Low SpO₂**
+![Low SpO2 Alert](assets/result-low-spo2-alert.jpeg)
 
-        analyze(frame)
+**No Movement Detection**
+![No Movement Alert](assets/result-no-movement-alert.jpeg)
 
-        # Overlay on video
-        cv2.putText(frame, f"Status: {current_data['status']}", (20,40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+## Tools & Technologies
 
-        cv2.putText(frame, f"HR: {current_data['heart_rate']}", (20,80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,0), 2)
+| Category | Tools |
+|---|---|
+| Language | Python |
+| Video Analysis | OpenCV |
+| Backend | Flask |
+| Editor | Visual Studio Code |
 
-        cv2.putText(frame, f"SpO2: {current_data['spo2']}", (20,120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,0,0), 2)
+## Advantages
 
-        _, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
+- Low cost — no physical hardware required
+- Real-time monitoring and alerting
+- Remotely accessible via web dashboard
+- Simple to set up and extend
 
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+## Limitations
 
-# -----------------------------
-# Routes
-# -----------------------------
-@app.route('/')
-def index():
-    return render_template('index.html')
+- Uses simulated vital data rather than readings from real medical sensors
+- Currently supports monitoring a single patient at a time
+- No persistent database — alerts and readings aren't stored for later review
+- Motion detection relies on a fixed camera angle and pre-recorded video
 
-@app.route('/video')
-def video():
-    return Response(gen_frames(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+## Future Enhancements
 
-@app.route('/data')
-def data():
-    return jsonify(current_data)
+- Integration with real IoT vital-sign sensors
+- AI-based health prediction and anomaly detection
+- Mobile application for on-the-go alerts
+- Cloud database for persistent record-keeping
+- Multi-patient monitoring support
 
-# -----------------------------
-# Run
-# -----------------------------
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+## Applications
+
+- ICU patient monitoring
+- Remote healthcare and telemedicine
+- Smart hospital systems
+
+## Repository Structure
+
+```
+├── app.py                # Flask backend
+├── analysis/              # Video + vital sign analysis logic
+├── templates/              # Web dashboard HTML
+├── static/                  # CSS/JS assets for dashboard
+├── assets/                   # Result screenshots used in this README
+└── README.md
+```
+
+## Conclusion
+
+This project demonstrates a smart ICU monitoring system using simulation. By combining video analysis with simulated vital-sign monitoring, it detects abnormal conditions and alerts doctors in real time, with a clear path toward becoming a real-world healthcare solution through IoT and AI integration.
+
+## Author
+
+**Sweatha S**
+[LinkedIn](https://www.linkedin.com/in/sweatha-s-39002039b) | [GitHub](https://github.com/Sweatha-2)
